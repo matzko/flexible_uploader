@@ -238,18 +238,25 @@ class WP_Flexible_Uploader_Model {
 	 * @param string $file The path to the file.
 	 * @return int The ID of the attachment created.
 	 */
-	public function save_file_as_attachment( $file = '' )
+	public function save_file_as_attachment( $file = '', $user_id = 0 )
 	{
+		$user_id = (int) $user_id;
+		if ( empty( $user_id ) ) {
+			$user_id = get_current_user_id();
+		}
+
 		// array( 'ext', 'type', 'proper_filename' )
 		$types = wp_check_filetype_and_ext( $file, $file );
 		if ( ! empty( $types[ 'proper_filename' ] ) ) {
 			$name = $types[ 'proper_filename' ];
 		}
 
+		$current_user = new WP_User( $user_id );
+	
 		if ( 
 			(
 				empty( $types['type'] ) || empty( $types['ext'] ) 
-			) && ! current_user_can( 'unfiltered_upload' )
+			) && ! $current_user->has_cap( 'unfiltered_upload' )
 		) {
 			return 0;
 		}
@@ -261,9 +268,9 @@ class WP_Flexible_Uploader_Model {
 		$url = $this->get_uploads_url() . DIRECTORY_SEPARATOR . basename( $file );
 
 		$attachment = array(
+			'post_author' => $user_id,
 			'post_mime_type' => $types['type'],
 			'guid' => $url,
-			'post_parent' => $post_id,
 			'post_title' => $title,
 			'post_content' => $content,
 		);
@@ -618,7 +625,7 @@ class WP_Flexible_Uploader_Endpoints {
 
 		$file_path = $target_dir . DIRECTORY_SEPARATOR . $file_name;
 		
-		$attach_id = $this->model->save_file_as_attachment( $file_path );
+		$attach_id = $this->model->save_file_as_attachment( $file_path, get_current_user_id() );
 
 		do_action( 'wp_flexible_uploader_created_attachment', $attach_id, $file_path, $file_name, $context );
 
