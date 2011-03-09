@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Flexible Uploader
-Plugin URI:
+Plugin URI: http://austinmatzko.com/wordpress-plugins/flexible-uploader/
 Description: Use an uploader in a flexible manner.
 Author: Austin Matzko
 Author URI: http://austinmatzko.com
