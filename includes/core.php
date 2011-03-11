@@ -164,7 +164,9 @@ class WP_Flexible_Uploader_Model {
 	{
 		$u_bytes = $this->_convert_hr_to_bytes( ini_get( 'upload_max_filesize' ) );
 		$p_bytes = $this->_convert_hr_to_bytes( ini_get( 'post_max_size' ) );
-		$bytes = apply_filters( 'upload_size_limit', min($u_bytes, $p_bytes), $u_bytes, $p_bytes );
+		// @todo figure out a workaround for upload size limit filter, as some callbacks available only in admin
+		// $bytes = apply_filters( 'upload_size_limit', min($u_bytes, $p_bytes), $u_bytes, $p_bytes );
+		$bytes = min($u_bytes, $p_bytes);
 		$mb = floor( $bytes / ( 1024 * 1024 ) );
 		return $mb;
 	}
@@ -236,9 +238,13 @@ class WP_Flexible_Uploader_Model {
 	 * Create an attachment from the given file
 	 *
 	 * @param string $file The path to the file.
+	 * @param int $user_id. Optional. The ID of the user to associate with this
+	 * 	attachment.
+	 * @param string $url. Optional. The URL to the file.
+	 * 	If empty, assumes that the base directory is uploads directory.
 	 * @return int The ID of the attachment created.
 	 */
-	public function save_file_as_attachment( $file = '', $user_id = 0 )
+	public function save_file_as_attachment( $file = '', $user_id = 0, $url = '' )
 	{
 		$user_id = (int) $user_id;
 		if ( empty( $user_id ) ) {
@@ -265,7 +271,9 @@ class WP_Flexible_Uploader_Model {
 			$ext = ltrim( strrchr( $name, '.'), '.');
 		}
 
-		$url = $this->get_uploads_url() . DIRECTORY_SEPARATOR . basename( $file );
+		if ( empty( $url ) ) {
+			$url = $this->get_uploads_url() . DIRECTORY_SEPARATOR . basename( $file );
+		}
 
 		$attachment = array(
 			'post_author' => $user_id,
@@ -274,6 +282,8 @@ class WP_Flexible_Uploader_Model {
 			'post_title' => $title,
 			'post_content' => $content,
 		);
+
+		$attachment = apply_filters( 'flex_uploader_attachment_properties', $attachment, $file );
 		
 		$id = wp_insert_attachment( $attachment, $file );
 
