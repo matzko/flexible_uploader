@@ -425,9 +425,9 @@ class WP_Flexible_Uploader_View {
 			echo esc_js( $this->model->form_id ); 
 		?>',
 
-		flexibleUploaderIsAdmin = '<?php
+		flexibleUploaderIsAdmin = <?php
 			echo esc_js( is_admin() ? '1' : '0' ); 
-		?>',
+		?>,
 
 		flexibleUploaderProgressBarId = '<?php
 			echo esc_js( $this->model->progress_bar_id );

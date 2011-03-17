@@ -169,7 +169,7 @@ console.log(err);
 
 		uploaderSetup();		
 
-		if ( 'undefined' != typeof flexibleUploaderIsAdmin ) {
+		if ( 'undefined' != typeof flexibleUploaderIsAdmin && flexibleUploaderIsAdmin ) {
 			adminSetup();
 		}
 	}
