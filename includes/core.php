@@ -146,6 +146,11 @@ class WP_Flexible_Uploader_Model {
 			$this->_path = $upload_dir_info[ 'path' ];
 			$this->_subdir = $upload_dir_info[ 'subdir' ];
 			$this->_url = $upload_dir_info[ 'url' ];
+		} else {
+			$this->_path_error = new WP_Error( 
+				'upload_error', 	
+				$upload_dir_info[ 'error' ] 
+			);
 		}
 	}
 
@@ -157,6 +162,35 @@ class WP_Flexible_Uploader_Model {
 	public function get_upload_runtimes()
 	{
 		return apply_filters( 'wp_flexible_uploader_upload_runtimes', $this->_upload_runtimes );
+	}
+
+	public function get_saved_error_message( $type = '' )
+	{
+		switch ( $type ) {
+			case 'path' :
+				return $this->_path_error;
+			break;
+		}
+	}
+
+	public function get_error_codes()
+	{
+		return array(
+			self::UPLOAD_DIRECTORY_NONEXIST,
+			self::UPLOAD_DIRECTORY_UNKNOWN_PROBLEM,
+		);
+	}
+
+	public function get_error_message( $code = null )
+	{
+		switch( $code ) {
+			case self::UPLOAD_DIRECTORY_NONEXIST :
+				return __( 'The directory upload does not exist.', 'flexible-uploader' );
+			break;
+			case self::UPLOAD_DIRECTORY_UNKNOWN_PROBLEM :
+				return __( 'An unknown problem with the upload directory has occurred.', 'flexible-uploader' );
+			break;
+		}
 	}
 
 	public function user_can_upload( $user_id = 0 )
@@ -183,16 +217,20 @@ class WP_Flexible_Uploader_Model {
 
 	public function get_chunk_size( $type = 'mb' )
 	{
-		return 1;
+		$p_bytes = $this->_convert_hr_to_bytes( ini_get( 'post_max_size' ) );
+		$mb = floor( $p_bytes / ( 1024 * 1024 ) );
+
+		// subtract a mb just to make sure we're in the range
+		return max( $mb - 1, 1 );
 	}
 
 	public function get_max_upload_size( $type = 'mb' )
 	{
 		$u_bytes = $this->_convert_hr_to_bytes( ini_get( 'upload_max_filesize' ) );
-		$p_bytes = $this->_convert_hr_to_bytes( ini_get( 'post_max_size' ) );
-		// @todo figure out a workaround for upload size limit filter, as some callbacks available only in admin
+		// $p_bytes = $this->_convert_hr_to_bytes( ini_get( 'post_max_size' ) );
 		// $bytes = apply_filters( 'upload_size_limit', min($u_bytes, $p_bytes), $u_bytes, $p_bytes );
-		$bytes = min($u_bytes, $p_bytes);
+		// $bytes = min($u_bytes, $p_bytes);
+		$bytes = $u_bytes;
 		$mb = floor( $bytes / ( 1024 * 1024 ) );
 		return $mb;
 	}
@@ -227,7 +265,7 @@ class WP_Flexible_Uploader_Model {
 	 */
 	public function get_uploads_dir()
 	{
-		return $this->_path;
+		return apply_filters( 'flexible_uploader_uploads_dir', $this->_path );
 	}
 	
 	/**
@@ -336,10 +374,12 @@ class WP_Flexible_Uploader_View {
 		do_action( 'wp_flexible_uploader_before_form' );
 		?>
 		<form enctype="multipart/form-data" id="<?php echo esc_attr( $this->model->form_id ); ?>" class="flexible-uploader-form" method="post" action="">
+			<?php do_action( 'wp_flexible_uploader_starting_form' ); ?>
 			<div id="<?php echo esc_attr( $this->model->upload_wrap_id ); ?>">
 			
 				<?php $this->print_form_extras(); ?>
 				
+				<input type="hidden" name="flexible-uploader-attachment-id" id="flexible-uploader-attachment-id" value="" />
 				<input type="file" name="<?php echo esc_attr( $this->model->browse_button_id ); ?>" id="<?php echo esc_attr( $this->model->browse_button_id ); ?>" value="<?php echo esc_attr( __('Select Files', 'flexible-uploader' ) ); ?>" />
 
 				<?php
@@ -357,6 +397,7 @@ class WP_Flexible_Uploader_View {
 					</div><!-- #<?php echo $this->model->progress_bar_id; ?> -->
 				</div><!-- #<?php echo $this->model->progress_bar_wrap; ?> -->
 			</div>
+			<?php do_action( 'wp_flexible_uploader_ending_form' ); ?>
 		</form>
 		<?php
 		do_action( 'wp_flexible_uploader_after_form' );
@@ -449,6 +490,10 @@ class WP_Flexible_Uploader_View {
 			?>'
 		}),
 
+		flexibleUploaderAttachmentInputId = '<?php
+			echo esc_js( 'flexible-uploader-attachment-id' );
+		?>',
+
 		flexibleUploaderBrowseButtonId = '<?php
 			echo esc_js( $this->model->browse_button_id ); 
 		?>',
@@ -456,6 +501,15 @@ class WP_Flexible_Uploader_View {
 		flexibleUploaderContainerId = '<?php
 			echo esc_js( $this->model->upload_wrap_id );	
 		?>',
+		
+		flexibleUploaderErrorCodes = <?php
+			$messages = array();
+			foreach( (array) $this->model->get_error_codes() as $code ) {
+				$messages[$code] = $this->model->get_error_message( $code );
+			}
+
+			echo json_encode( $messages );
+		?>,
 
 		flexibleUploaderFormId = '<?php
 			echo esc_js( $this->model->form_id ); 
@@ -531,6 +585,29 @@ class WP_Flexible_Uploader_Endpoints {
 
 		$target_dir = $this->model->get_uploads_dir();
 
+		if ( empty( $target_dir ) ) {
+			$path_error = $this->model->get_saved_error_message( 'path' );
+			if ( is_wp_error( $path_error ) ) {
+				echo json_encode( array(
+					'jsonrpc' => '2.0',
+					'error' => array(
+						'code' => WP_Flexible_Uploader_Model::UPLOAD_DIRECTORY_UNKNOWN_PROBLEM,
+						'message' => $path_error->get_error_message(),
+					),
+					'id' => 'id',
+				) );
+			} else {
+				echo json_encode( array(
+					'jsonrpc' => '2.0',
+					'error' => array(
+						'code' => WP_Flexible_Uploader_Model::UPLOAD_DIRECTORY_NONEXIST,
+						'message' =>  __( 'Upload directory does not appear to exist.  Have you created one?', 'flexible-uploader' ), 
+					),
+					'id' => 'id',
+				) );
+			}
+			exit;
+		}
 		if ( ! file_exists( $target_dir ) ) {
 			@mkdir( $target_dir );
 		}
