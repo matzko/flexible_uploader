@@ -133,8 +133,10 @@ class WP_Flexible_Uploader_Model {
 		$date_info = apply_filters( 'wp_flexible_uploader_date_structure', date( 'Y/m' ) );
 
 		$this->_browseable_files_filters = array(
-			'desc' => __('Image files', 'flexible-uploader'),
-			'exts' => array( 'gif', 'jpg', 'png' ),
+			array(
+				'desc' => __('Image files', 'flexible-uploader'),
+				'exts' => array( 'gif', 'jpg', 'png' ),
+			),
 		);
 
 		$upload_dir_info = wp_upload_dir( $date_info );
@@ -390,7 +392,7 @@ class WP_Flexible_Uploader_View {
 		var flexibleUploader = new plupload.Uploader({
 			// General settings
 			// runtimes : 'gears,flash,silverlight,browserplus,html5',
-			runtimes : '<?php echo esc_js( implode(',' $this->model->get_upload_runtimes() ) ); ?>',
+			runtimes : '<?php echo esc_js( implode(',', $this->model->get_upload_runtimes() ) ); ?>',
 			url : '<?php 
 				echo add_query_arg( 
 					array(
@@ -414,25 +416,21 @@ class WP_Flexible_Uploader_View {
 			// resize : {width : 222, height : 222, quality : 90},
 
 			// Specify what files to browse for
-			filters : [
-				<?php 
+			filters : [<?php 
 				$filter_data = $this->model->get_browseable_files();
 				$filters = array();
 				foreach( (array) $filter_data as $filter ) :
 					ob_start();
-					?>
-					{title : "<?php 
+					?>{title : "<?php 
 						echo esc_js( $filter['desc'] ); 
 					?>", extensions : "<?php  
-						echo esc_js( implode( ',' $filter['exts'] ) );
-					?>"}
-					<?php
+						echo esc_js( implode( ',', $filter['exts'] ) );
+					?>"}<?php
 					$filters[] = ob_get_clean();
 				endforeach;
 
 				echo implode( ",\n", $filters );
-				?>
-				],
+				?>],
 
 			// Flash settings
 			flash_swf_url : '<?php
