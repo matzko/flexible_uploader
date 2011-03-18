@@ -121,6 +121,7 @@ class WP_Flexible_Uploader_Model {
 	);
 
 	const UPLOAD_DIRECTORY_NONEXIST = 32400;
+	const UPLOAD_DIRECTORY_UNKNOWN_PROBLEM = 32600;
 	
 	public $browse_button_id = 'wp-flexible-browse-button';
 	public $file_name_id = 'wp-flexible-uploader-name';
