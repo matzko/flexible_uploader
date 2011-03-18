@@ -757,7 +757,7 @@ class WP_Flexible_Uploader_Endpoints {
 
 		echo json_encode( array(
 			'jsonrpc' => '2.0',
-			'result' => $file_path,
+			'result' => array( 'attach_id' => $attach_id, 'file_name' => $file_name ),
 			'id' => 'id',
 		) );
 		exit;
