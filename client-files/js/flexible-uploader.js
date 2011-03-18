@@ -1,4 +1,4 @@
-var FlexibleUploaderJS = (function(scope) {
+var FlexibleUploaderJS = (function(globalScope) {
 	var addEvent = function( obj, type, fn ) {
 		if (obj.addEventListener)
 			obj.addEventListener(type, fn, false);
@@ -64,15 +64,79 @@ var FlexibleUploaderJS = (function(scope) {
 
 	},
 
+	upEventCallbacks = {},
+	attachUploaderCallback = function( ev, callback ) {
+		if ( 'function' != typeof callback )
+			return false;
+		if ( upEventCallbacks[ ev ] ) {
+			upEventCallbacks[ ev ][upEventCallbacks.length] = callback; 
+		} else {
+			upEventCallbacks[ ev ] = [ callback ]; 
+		}
+	},
+
+	callUploaderEventCallbacks = function( ev, scope, args ) {
+		var i;
+
+		if ( ! scope ) 
+			scope = globalScope;
+		if ( ! args )
+			args = [];
+
+		if ( upEventCallbacks[ev] ) {
+			for ( i = 0; i < upEventCallbacks[ev].length; i++ ) {
+				if ( 'function' == typeof upEventCallbacks[ev][i] ) {
+					upEventCallbacks[ev][i].apply( scope, args );
+				}
+			}
+		} else {
+			return false;
+		}
+	},
+
 	uploaderSetup = function() {
 		if ( 'undefined' == typeof flexibleUploader )
 			return;
 
 		var button = d.createElement('a'),
+		complete = false,
 		container = d.getElementById( flexibleUploaderContainerId ),
 		progressBar,
 		progWrap,
 		up = flexibleUploader,
+
+		handleErrorResponse = function( err ) {
+			if ( err.message ) {
+				alert( err.message );
+			} else if ( flexibleUploaderErrorCodes && err.code && flexibleUploaderErrorCodes[err.code] ) {
+				alert( flexibleUploaderErrorCodes[err.code] ); 
+			}
+		},
+
+		handleSuccessResponse = function( result ) {
+			var attachInput = d.getElementById( flexibleUploaderAttachmentInputId );
+			if ( result.attach_id && attachInput ) {
+				attachInput.value = result.attach_id;
+			}
+		},
+
+		handleUploadResponse = function( resp ) {
+			var jsonObj;
+
+			if ( 'undefined' != typeof JSON && resp && resp['response'] ) {
+				try {
+					jsonObj = JSON.parse( resp['response'] );
+					if ( jsonObj.error ) {
+						handleErrorResponse( jsonObj.error );
+						return false;
+					} else if ( jsonObj.result ) {
+						handleSuccessResponse( jsonObj.result );
+					}
+				} catch( err ) {}
+			}
+
+			return true;
+		},
 
 		progressUpdater = function(up, file, resp) {
 			progressBar = d.getElementById( flexibleUploaderProgressBarId );
@@ -83,24 +147,34 @@ var FlexibleUploaderJS = (function(scope) {
 			if ( ! resp )
 				resp = {};
 
-			var perc = 100 * ( file.loaded / file.size );
+			if ( handleUploadResponse( resp ) ) {
 
-			if ( progressBar ) {
-				progressBar.style.width = perc + '%';	
-				progressBar.innerHTML = Math.floor( perc ) + '%';
-			}
-			
-			// All files are uploaded
-			if (up.total.uploaded == up.files.length) {
-				up.stop();
+				complete = !! ( file.loaded == file.size );
 
-				if ( progWrap ) {
-					if ( ! progWrap.className || -1 === progWrap.className.indexOf('active') ) {
-						progWrap.className = 'inactive';
-					} else {
-						progWrap.className = progWrap.className.replace(/\bactive/g, 'inactive'); 
+				var perc = 100 * ( file.loaded / file.size );
+
+
+				if ( progressBar ) {
+					progressBar.style.width = perc + '%';	
+					progressBar.innerHTML = Math.floor( perc ) + '%';
+				}
+				
+				// All files are uploaded
+				if (up.total.uploaded == up.files.length) {
+					up.stop();
+
+					if ( progWrap ) {
+						if ( ! progWrap.className || -1 === progWrap.className.indexOf('active') ) {
+							progWrap.className = 'inactive';
+						} else {
+							progWrap.className = progWrap.className.replace(/\bactive/g, 'inactive'); 
+						}
 					}
 				}
+
+			} else {
+				if ( up.stop )
+					up.stop();
 			}
 		};
 
@@ -126,8 +200,24 @@ var FlexibleUploaderJS = (function(scope) {
 			}
 		});
 
-		up.bind('FileUploaded', progressUpdater);
-		up.bind('UploadProgress', progressUpdater);
+		up.bind('Error', function( up, err ) {
+			progressUpdater.call(this, up, err );
+			callUploaderEventCallbacks( 'Error', this, [ up, err ] ); 
+		});
+
+		up.bind('FileUploaded', function( up, file, resp ) {
+			progressUpdater.call(this, up, file, resp);
+			callUploaderEventCallbacks( 'FileUploaded', this, [ up, file, resp ] ); 
+		});
+		
+		up.bind('UploadComplete', function( up, files ) {
+			callUploaderEventCallbacks( 'UploadComplete', this, [ up, files ] ); 
+		});
+
+		up.bind('UploadProgress', function( up, file, resp ) {
+			progressUpdater.call(this, up, file, resp);
+			callUploaderEventCallbacks( 'UploadProgress', this, [ up, file, resp ] ); 
+		});
 		
 		up.bind('Init', function() {
 			var form = d.getElementById( flexibleUploaderFormId ),
@@ -138,24 +228,26 @@ var FlexibleUploaderJS = (function(scope) {
 				progressBar.style.width = '0%';
 				
 			addEvent( form, 'submit', function(e) {
-				up.start();
-			
-				if ( e.stopPropagation )
-					e.stopPropagation();
-				if ( e.preventDefault )
-					e.preventDefault();
-				e.cancelBubble = true;
-				e.returnValue = false;
-				return false;
+				if ( ! complete ) {
+					up.start();
+				
+					if ( e.stopPropagation )
+						e.stopPropagation();
+					if ( e.preventDefault )
+						e.preventDefault();
+					e.cancelBubble = true;
+					e.returnValue = false;
+					return false;
+				}
 			} );
 
 		});
-		/*
 
+		/*
 		up.bind('Error', function(up, err) {
-console.log(err);
+			console.log(err);
 		});
-		*/
+		/**/
 		
 		if ( container  )
 			up.init();
@@ -176,4 +268,8 @@ console.log(err);
 
 	addEvent(d, 'DOMContentLoaded', init);
 	addEvent(window, 'load', init);
+
+	return {
+		attachUploaderCallback:attachUploaderCallback
+	}
 })(this);
