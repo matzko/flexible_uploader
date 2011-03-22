@@ -205,6 +205,10 @@ var FlexibleUploaderJS = (function(globalScope) {
 			callUploaderEventCallbacks( 'Error', this, [ up, err ] ); 
 		});
 
+		up.bind('FilesAdded', function( up, files ) {
+			callUploaderEventCallbacks( 'FilesAdded', this, [ up, files ] ); 
+		});
+
 		up.bind('FileUploaded', function( up, file, resp ) {
 			progressUpdater.call(this, up, file, resp);
 			callUploaderEventCallbacks( 'FileUploaded', this, [ up, file, resp ] ); 
