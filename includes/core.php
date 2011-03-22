@@ -383,7 +383,11 @@ class WP_Flexible_Uploader_View {
 				<?php $this->print_form_extras(); ?>
 				
 				<input type="hidden" name="flexible-uploader-attachment-id" id="flexible-uploader-attachment-id" value="" />
-				<input type="file" name="<?php echo esc_attr( $this->model->browse_button_id ); ?>" id="<?php echo esc_attr( $this->model->browse_button_id ); ?>" value="<?php echo esc_attr( __('Select Files', 'flexible-uploader' ) ); ?>" />
+				<?php
+				$browse_button = apply_filters( 'wp_flexible_uploader_form_browse', __( 'Select Files', 'flexible-uploader' ), $this->model->browse_button_id );
+				if ( ! empty( $browse_button ) ) : ?>
+					<input type="file" name="<?php echo esc_attr( $this->model->browse_button_id ); ?>" id="<?php echo esc_attr( $this->model->browse_button_id ); ?>" value="<?php echo esc_attr( __('Select Files', 'flexible-uploader' ) ); ?>" />
+				<?php endif; ?>
 
 				<?php
 				$submit_button = apply_filters( 'wp_flexible_uploader_form_submit', __('Upload', 'flexible-uploader') );
