@@ -122,6 +122,10 @@ class WP_Flexible_Uploader_Model {
 
 	const UPLOAD_DIRECTORY_NONEXIST = 32400;
 	const UPLOAD_DIRECTORY_UNKNOWN_PROBLEM = 32600;
+	const USER_PERMISSION_PROBLEM = 32800;
+
+	public $user_upload_cap = 'upload_files';
+	public $user_view_form_cap = 'edit_posts';
 	
 	public $browse_button_id = 'wp-flexible-browse-button';
 	public $file_name_id = 'wp-flexible-uploader-name';
@@ -181,6 +185,7 @@ class WP_Flexible_Uploader_Model {
 		return array(
 			self::UPLOAD_DIRECTORY_NONEXIST,
 			self::UPLOAD_DIRECTORY_UNKNOWN_PROBLEM,
+			self::USER_PERMISSION_PROBLEM,
 		);
 	}
 
@@ -193,6 +198,9 @@ class WP_Flexible_Uploader_Model {
 			case self::UPLOAD_DIRECTORY_UNKNOWN_PROBLEM :
 				return __( 'An unknown problem with the upload directory has occurred.', 'flexible-uploader' );
 			break;
+			case self::USER_PERMISSION_PROBLEM :
+				return __( 'The current user does not have permission to upload.', 'flexible-uploader' );
+			break;
 		}
 	}
 
@@ -200,22 +208,18 @@ class WP_Flexible_Uploader_Model {
 	{
 		$user_id = empty( $user_id ) ? get_current_user_id() : (int) $user_id;
 		
-		$cap = 'manage_options';
-
 		$user = new WP_User( $user_id );
 		
-		return call_user_func_array( array( $user, 'has_cap' ), array( $cap ) );
+		return call_user_func_array( array( $user, 'has_cap' ), array( $this->user_upload_cap ) );
 	}
 
 	public function user_can_view_form( $user_id = 0 )
 	{
 		$user_id = empty( $user_id ) ? get_current_user_id() : (int) $user_id;
 		
-		$cap = 'manage_options';
-
 		$user = new WP_User( $user_id );
 		
-		return call_user_func_array( array( $user, 'has_cap' ), array( $cap ) );
+		return call_user_func_array( array( $user, 'has_cap' ), array( $this->user_view_form_cap ) );
 	}
 
 	public function get_chunk_size( $type = 'mb' )
@@ -571,10 +575,20 @@ class WP_Flexible_Uploader_Endpoints {
 	{
 		if ( 
 			! empty( $_REQUEST[ $this->model->request_variable_id ] ) && 
-			'file_submit' == $_REQUEST[ $this->model->request_variable_id ] &&
-			$this->model->user_can_upload( get_current_user_id() )
+			'file_submit' == $_REQUEST[ $this->model->request_variable_id ]
 		) {
-			$this->process_upload( 'file-submissions' );
+			if ( $this->model->user_can_upload( get_current_user_id() ) ) {
+				$this->process_upload( 'file-submissions' );
+			} else {
+				echo json_encode( array(
+					'jsonrpc' => '2.0',
+					'error' => array(
+						'code' => WP_Flexible_Uploader_Model::USER_PERMISSION_PROBLEM,
+						'message' => __( 'Sorry, but it appears you do not have permission to upload.', 'flexible-uploader' ),
+					),
+					'id' => 'id',
+				) );
+			}
 		}
 	}
 
