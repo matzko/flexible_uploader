@@ -51,8 +51,6 @@ var FlexibleUploaderJS = (function(globalScope) {
 		var target = e.target || e.srcElement;
 
 		if ( ancestryHasClass( target, 'launch-flexible-uploader-lightbox' ) ) {
-			alert( 'hi there' );
-
 			if ( e.stopPropagation )
 				e.stopPropagation();
 			if ( e.preventDefault )
@@ -186,18 +184,16 @@ var FlexibleUploaderJS = (function(globalScope) {
 		button.id = flexibleUploaderBrowseButtonId;
 		button.innerHTML = 'Select Image';
 
-		up.bind('StateChanged', function() {
-			var progWrap = d.getElementById( flexibleUploaderProgressBarWrap );
+		up.bind('BeforeUpload', function( up, file ) {
+			callUploaderEventCallbacks( 'BeforeUpload', this, [ up, file ] ); 
+		});
 
-			if ( up.state == plupload.STARTED ) {
-				if ( progWrap && progWrap.className ) {
-					progWrap.className = progWrap.className.replace(/inactive/g, '');
-				}
-			} else {
-				if ( progWrap && progWrap.className ) {
-					progWrap.className += ' inactive';
-				}
-			}
+		up.bind('ChunkUploaded', function( up, file, resp ) {
+			callUploaderEventCallbacks( 'ChunkUploaded', this, [ up, file, resp ] ); 
+		});
+
+		up.bind('Destroy', function( up ) {
+			callUploaderEventCallbacks( 'Destroy', this, [ up ] ); 
 		});
 
 		up.bind('Error', function( up, err ) {
@@ -209,21 +205,18 @@ var FlexibleUploaderJS = (function(globalScope) {
 			callUploaderEventCallbacks( 'FilesAdded', this, [ up, files ] ); 
 		});
 
+		up.bind('FilesRemoved', function( up, files ) {
+			callUploaderEventCallbacks( 'FilesRemoved', this, [ up, files ] ); 
+		});
+
 		up.bind('FileUploaded', function( up, file, resp ) {
 			progressUpdater.call(this, up, file, resp);
 			callUploaderEventCallbacks( 'FileUploaded', this, [ up, file, resp ] ); 
 		});
 		
-		up.bind('UploadComplete', function( up, files ) {
-			callUploaderEventCallbacks( 'UploadComplete', this, [ up, files ] ); 
-		});
+		up.bind('Init', function( up ) {
+			callUploaderEventCallbacks( 'Init', this, [ up ] ); 
 
-		up.bind('UploadProgress', function( up, file, resp ) {
-			progressUpdater.call(this, up, file, resp);
-			callUploaderEventCallbacks( 'UploadProgress', this, [ up, file, resp ] ); 
-		});
-		
-		up.bind('Init', function() {
 			var form = d.getElementById( flexibleUploaderFormId ),
 			progressBar = d.getElementById( flexibleUploaderProgressBarId ),
 			progWrap = d.getElementById( flexibleUploaderProgressBarWrap );
@@ -246,12 +239,46 @@ var FlexibleUploaderJS = (function(globalScope) {
 			} );
 
 		});
-
-		/*
-		up.bind('Error', function(up, err) {
-			console.log(err);
+		
+		up.bind('PostInit', function( up ) {
+			callUploaderEventCallbacks( 'PostInit', this, [ up ] ); 
 		});
-		/**/
+		
+		up.bind('QueueChanged', function( up ) {
+			callUploaderEventCallbacks( 'QueueChanged', this, [ up ] ); 
+		});
+		
+		up.bind('Refresh', function( up ) {
+			callUploaderEventCallbacks( 'Refresh', this, [ up ] ); 
+		});
+
+		up.bind('StateChanged', function( up ) {
+			callUploaderEventCallbacks( 'StateChanged', this, [ up ] ); 
+			var progWrap = d.getElementById( flexibleUploaderProgressBarWrap );
+
+			if ( up.state == plupload.STARTED ) {
+				if ( progWrap && progWrap.className ) {
+					progWrap.className = progWrap.className.replace(/inactive/g, '');
+				}
+			} else {
+				if ( progWrap && progWrap.className ) {
+					progWrap.className += ' inactive';
+				}
+			}
+		});
+		
+		up.bind('UploadComplete', function( up, files ) {
+			callUploaderEventCallbacks( 'UploadComplete', this, [ up, files ] ); 
+		});
+		
+		up.bind('UploadFile', function( up, file ) {
+			callUploaderEventCallbacks( 'UploadFile', this, [ up, file ] ); 
+		});
+
+		up.bind('UploadProgress', function( up, file, resp ) {
+			progressUpdater.call(this, up, file, resp);
+			callUploaderEventCallbacks( 'UploadProgress', this, [ up, file, resp ] ); 
+		});
 		
 		if ( container  )
 			up.init();
