@@ -119,7 +119,8 @@ class WP_Flexible_Uploader_Model {
 		'browserplus',
 		'html5'
 	);
-
+	
+	const FILE_TYPE_PERMISSION_PROBLEM = 33000;
 	const UPLOAD_DIRECTORY_NONEXIST = 32400;
 	const UPLOAD_DIRECTORY_UNKNOWN_PROBLEM = 32600;
 	const USER_PERMISSION_PROBLEM = 32800;
@@ -183,6 +184,7 @@ class WP_Flexible_Uploader_Model {
 	public function get_error_codes()
 	{
 		return array(
+			self::FILE_TYPE_PERMISSION_PROBLEM, 
 			self::UPLOAD_DIRECTORY_NONEXIST,
 			self::UPLOAD_DIRECTORY_UNKNOWN_PROBLEM,
 			self::USER_PERMISSION_PROBLEM,
@@ -192,6 +194,9 @@ class WP_Flexible_Uploader_Model {
 	public function get_error_message( $code = null )
 	{
 		switch( $code ) {
+			case self::FILE_TYPE_PERMISSION_PROBLEM :
+				return __( 'The file type is not allowed to be uploaded.', 'flexible-uploader' );
+			break;
 			case self::UPLOAD_DIRECTORY_NONEXIST :
 				return __( 'The directory upload does not exist.', 'flexible-uploader' );
 			break;
@@ -313,7 +318,7 @@ class WP_Flexible_Uploader_Model {
 	 * 	attachment.
 	 * @param string $url. Optional. The URL to the file.
 	 * 	If empty, assumes that the base directory is uploads directory.
-	 * @return int The ID of the attachment created.
+	 * @return int|WP_Error The ID of the attachment created or an error object.
 	 */
 	public function save_file_as_attachment( $file = '', $user_id = 0, $url = '' )
 	{
@@ -335,7 +340,10 @@ class WP_Flexible_Uploader_Model {
 				empty( $types['type'] ) || empty( $types['ext'] ) 
 			) && ! $current_user->has_cap( 'unfiltered_upload' )
 		) {
-			return 0;
+			return new WP_Error(
+				WP_Flexible_Uploader_Model::FILE_TYPE_PERMISSION_PROBLEM,
+				__( 'Sorry, but this is not an allowed file type.', 'flexible-uploader' )
+			);
 		}
 
 		if ( empty( $types['ext'] ) ) {
@@ -365,10 +373,8 @@ class WP_Flexible_Uploader_Model {
 			}
 			$data = wp_generate_attachment_metadata( $id, $file );
 			wp_update_attachment_metadata( $id, $data );
-			return $id;
 		}
-
-		return 0;
+		return $id;
 	}
 }
 
@@ -770,6 +776,18 @@ class WP_Flexible_Uploader_Endpoints {
 		$file_path = $target_dir . DIRECTORY_SEPARATOR . $file_name;
 		
 		$attach_id = $this->model->save_file_as_attachment( $file_path, get_current_user_id() );
+		if ( is_wp_error( $attach_id ) ) {
+			echo json_encode( array(
+				'jsonrpc' => '2.0',
+				'error' => array(
+					'code' => $attach_id->get_error_code(),
+					'message' => $attach_id->get_error_message(),
+				),
+				'id' => 'id',
+			) );
+			@unlink( $file_path );
+			exit;
+		}
 
 		do_action( 'wp_flexible_uploader_created_attachment', $attach_id, $file_path, $file_name, $context );
 
