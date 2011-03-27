@@ -420,7 +420,7 @@ class WP_Flexible_Uploader_View {
 		$instructions = apply_filters( 'wp_flexible_uploader_form_instructions', __( 'Choose a file to upload.', 'flexible-uploader' ) );
 
 		if ( ! empty( $header ) ) :
-			?><h3 class="wp-flexible-uploader-header"><?php echo $header; ?></h3><?php
+			?><h3 id="wp-flexible-uploader-header"><?php echo $header; ?></h3><?php
 		endif;
 
 		if ( ! empty( $instructions ) ) :
