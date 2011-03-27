@@ -92,6 +92,20 @@ var FlexibleUploaderJS = (function(globalScope) {
 		}
 	},
 
+	_errorHandler = function( m ) {
+		alert( m );
+	},
+	/**
+	 * Set the handler for the error responses.
+	 *
+	 * @param function The method for handling errors.
+	 */
+	setErrorHandler = function( fn ) {
+		if ( fn ) {
+			_errorHandler = fn;
+		}
+	},
+
 	uploaderSetup = function() {
 		if ( 'undefined' == typeof flexibleUploader )
 			return;
@@ -105,9 +119,9 @@ var FlexibleUploaderJS = (function(globalScope) {
 
 		handleErrorResponse = function( err ) {
 			if ( err.message ) {
-				alert( err.message );
+				_errorHandler( err.message );
 			} else if ( flexibleUploaderErrorCodes && err.code && flexibleUploaderErrorCodes[err.code] ) {
-				alert( flexibleUploaderErrorCodes[err.code] ); 
+				_errorHandler( flexibleUploaderErrorCodes[err.code] ); 
 			}
 		},
 
@@ -301,6 +315,7 @@ var FlexibleUploaderJS = (function(globalScope) {
 	addEvent(window, 'load', init);
 
 	return {
-		attachUploaderCallback:attachUploaderCallback
+		attachUploaderCallback:attachUploaderCallback,
+		setErrorHandler:setErrorHandler
 	}
 })(this);
